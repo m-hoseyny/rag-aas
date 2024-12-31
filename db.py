@@ -10,8 +10,8 @@ load_dotenv()
 
 MAIN_DB_USERNAME=os.environ.get('MAIN_DB_USERNAME', 'postgres')
 MAIN_DB_PASSWORD=os.environ.get('MAIN_DB_PASSWORD', '1234')
-MAIN_DB_DATABASE=os.environ.get('MAIN_DB_DATABASE', 'karbala_users')
-MAIN_DB_HOSTNAME=os.environ.get('MAIN_DB_HOSTNAME', 'karbala_users')
+MAIN_DB_DATABASE=os.environ.get('MAIN_DB_DATABASE', 'rag-ass-chats')
+MAIN_DB_HOSTNAME=os.environ.get('MAIN_DB_HOSTNAME', 'localhost')
 MAIN_DB_PORT=os.environ.get('MAIN_DB_PORT', '5432')
 
 
@@ -29,6 +29,7 @@ class Chat(Base):
                 primary_key=True)
     user_input = Column(Text, nullable=False)
     system_answer = Column(Text, nullable=False)
+    collection_id = Column(String(200), nullable=False)
     
     llm_input_token = Column(Integer, default=0)
     llm_output_token = Column(Integer, default=0)
@@ -36,10 +37,9 @@ class Chat(Base):
     
     created_at = Column(DateTime, server_default=func.now())
     extra_data = Column(JSON, default={})  # JSON field to store additional data
-    user = relationship('User', back_populates='chats')
     
     def __str__(self) -> str:
-        return f'{self.user_id} <Chat {self.id}>'
+        return f'<Chat {self.id}>'
     
     
 Base.metadata.create_all(engine)

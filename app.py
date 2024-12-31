@@ -160,6 +160,7 @@ def upload_file():
                     }), 400
                 
                 for _, row in df.iterrows():
+                    print(_)
                     feed_data(
                         page_content=row['question'],
                         metadata={'answer': row['answer'], 
@@ -242,16 +243,6 @@ def upload_file():
                     }
                 }
             }
-        },
-        400: {
-            "description": "Invalid input",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "status": {"type": "string"},
-                    "message": {"type": "string"}
-                }
-            }
         }
     }
 })
@@ -271,12 +262,15 @@ def chat_message():
         faq_match = get_faq(collection_id, user_input)
         
         # Get detailed answer
+        model = 'gpt-4o'
         detailed_answer, callback = answer_me(
             collection_name=collection_id,
             user_input=user_input,
-            temperature=0.4
+            temperature=0.4,
+            model=model
         )
 
+        # Prepare response
         response = {
             'status': 'success',
             'faq_match': {
@@ -290,6 +284,26 @@ def chat_message():
                 'total_tokens': callback.total_tokens
             }
         }
+
+        # Save chat to database
+        with Session(engine) as session:
+            chat = Chat(
+                user_input=user_input,
+                system_answer=detailed_answer['answer'],
+                collection_id=collection_id,
+                llm_input_token=callback.prompt_tokens,
+                llm_output_token=callback.completion_tokens,
+                llm_model=model,
+                extra_data={
+                    'collection_id': collection_id,
+                    'faq_match': {
+                        'question': faq_match.metadata.get('question', ''),
+                        'answer': faq_match.metadata.get('answer', '')
+                    }
+                }
+            )
+            session.add(chat)
+            session.commit()
 
         return jsonify(response)
 
