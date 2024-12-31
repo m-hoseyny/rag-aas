@@ -1,0 +1,15 @@
+flask==3.0.0
+langchain==0.2.9
+langchain-cohere==0.1.9
+langchain-community==0.2.7
+langchain-core==0.2.21
+langchain-experimental==0.0.62
+langchain-openai==0.1.17
+langchain-postgres==0.0.9
+pgvector==0.2.5
+psycopg==3.2.1
+psycopg-binary==3.2.1
+psycopg-pool==3.2.2
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+python-multipart==0.0.6
