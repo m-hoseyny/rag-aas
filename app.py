@@ -257,16 +257,20 @@ def chat_message():
 
         collection_id = data['collection_id']
         user_input = data['user_input']
-
+        answer = ''
+        question = ''
         # Get FAQ match
         faq_match = get_faq(collection_id, user_input)
-        
+        if faq_match:
+            question = faq_match.metadata.get('question', '')
+            answer = faq_match.metadata.get('answer', '')
+
         # Get detailed answer
         model = 'gpt-4o'
         detailed_answer, callback = answer_me(
             collection_name=collection_id,
             user_input=user_input,
-            temperature=0.4,
+            temperature=0.2,
             model=model
         )
 
@@ -274,8 +278,8 @@ def chat_message():
         response = {
             'status': 'success',
             'faq_match': {
-                'question': faq_match.metadata.get('question', ''),
-                'answer': faq_match.metadata.get('answer', '')
+                'question': question,
+                'answer': answer
             },
             'detailed_answer': detailed_answer['answer'],
             'token_usage': {
@@ -297,8 +301,8 @@ def chat_message():
                 extra_data={
                     'collection_id': collection_id,
                     'faq_match': {
-                        'question': faq_match.metadata.get('question', ''),
-                        'answer': faq_match.metadata.get('answer', '')
+                        'question': question,
+                        'answer': answer
                     }
                 }
             )
