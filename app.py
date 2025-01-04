@@ -261,9 +261,10 @@ def chat_message():
         question = ''
         # Get FAQ match
         faq_match = get_faq(collection_id, user_input)
-        if faq_match:
-            question = faq_match.metadata.get('question', '')
-            answer = faq_match.metadata.get('answer', '')
+        print(faq_match)
+        if faq_match[0]:
+            question = faq_match[0].metadata.get('question', '')
+            answer = faq_match[0].metadata.get('answer', '')
 
         # Get detailed answer
         model = 'gpt-4o'
@@ -303,7 +304,8 @@ def chat_message():
                     'faq_match': {
                         'question': question,
                         'answer': answer
-                    }
+                    },
+                    'score': faq_match[1]
                 }
             )
             session.add(chat)

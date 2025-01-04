@@ -27,7 +27,7 @@ VECTOR_DB_HOSTNAME=os.environ.get('VECTOR_DB_HOSTNAME', '1234')
 VECTOR_DB_DATABASE=os.environ.get('VECTOR_DB_DATABASE', 'karbala')
 VECTOR_DB_PORT=os.environ.get('VECTOR_DB_PORT', '6604')
 
-THRESHOLD = 0.7
+THRESHOLD = 0.4
 
 # See docker command above to launch a postgres instance with pgvector enabled.
 connection = f"postgresql+psycopg://{VECTOR_DB_USERNAME}:{VECTOR_DB_PASSWORD}@{VECTOR_DB_HOSTNAME}:{VECTOR_DB_PORT}/{VECTOR_DB_DATABASE}"  # Uses psycopg3!
@@ -47,11 +47,12 @@ def get_faq(collection_name, user_input):
     vectorstore = get_vector_db(collection_name)
     print('Checking FAQ')
     qrels = vectorstore.similarity_search_with_score(user_input)
-    choosen_qrel = None
+    # print(qrels)
+    choosen_qrel = [None, None]
     for qrel in qrels:
-        if 1 - qrel[1] > THRESHOLD:
+        if 1- qrel[1] > THRESHOLD:
             choosen_qrel = qrel[0]
-            return choosen_qrel
+            return qrel
     return choosen_qrel
 
 
@@ -68,7 +69,7 @@ def answer_me(collection_name, user_input, system_prompt=None, k=5, temperature=
             "You should not answer anything that is not related to the user question. "
             "Always answer respectfully. If user is aggressive or insolence or bully, just answer it politely."
             "your main language is farsi/persian. Answer all questions and queries in persian. "
-            "If the context is not provided or not related to the question, do not answer and tell در باره این موضوع اطلاعی ندارم."
+            # "If the context not related to the question, do not answer and tell در باره این موضوع اطلاعی ندارم."
         )
         
     system_prompt = system_prompt + '\n\n{context}'
