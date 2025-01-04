@@ -274,7 +274,7 @@ def chat_message():
             temperature=0.2,
             model=model
         )
-
+        output = 'به صورت خلاصه\n{}'.format(detailed_answer['answer'])
         # Prepare response
         response = {
             'status': 'success',
@@ -282,7 +282,7 @@ def chat_message():
                 'question': question,
                 'answer': answer
             },
-            'detailed_answer': detailed_answer['answer'],
+            'detailed_answer': output,
             'token_usage': {
                 'input_tokens': callback.total_tokens,
                 'output_tokens': callback.completion_tokens,
