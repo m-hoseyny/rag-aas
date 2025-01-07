@@ -1,11 +1,11 @@
 from flask import Flask, jsonify, request
-from db import engine, Chat
+from db import BotSetting, engine, Chat
 from sqlalchemy.orm import Session
 import requests
 import pandas as pd
 import tempfile
 import os
-from rag import feed_data, get_faq, answer_me
+from rag import feed_data, get_faq, answer_me, local_response
 from flasgger import Swagger, swag_from
 
 app = Flask(__name__)
@@ -257,61 +257,45 @@ def chat_message():
 
         collection_id = data['collection_id']
         user_input = data['user_input']
-        answer = ''
-        question = ''
-        # Get FAQ match
-        faq_match = get_faq(collection_id, user_input)
-        print(faq_match)
-        if faq_match[0]:
-            question = faq_match[0].metadata.get('question', '')
-            answer = faq_match[0].metadata.get('answer', '')
-
-        # Get detailed answer
-        model = 'gpt-4o'
-        detailed_answer, callback = answer_me(
-            collection_name=collection_id,
-            user_input=user_input,
-            temperature=0.2,
-            model=model
-        )
-        output = 'به صورت خلاصه\n{}'.format(detailed_answer['answer'])
-        # Prepare response
-        response = {
-            'status': 'success',
-            'faq_match': {
-                'question': question,
-                'answer': answer
-            },
-            'detailed_answer': output,
-            'token_usage': {
-                'input_tokens': callback.total_tokens,
-                'output_tokens': callback.completion_tokens,
-                'total_tokens': callback.total_tokens
-            }
-        }
-
-        # Save chat to database
+        responses = None
+        
         with Session(engine) as session:
+            bot_settings = session.query(BotSetting).filter(BotSetting.collection_id == collection_id).first()
+            if not bot_settings:
+                bot_settings = BotSetting(collection_id=collection_id,
+                                        threshold=0.2,
+                                        k=5,
+                                        temperature=0.5,
+                                        model_name='gpt-4o')
+                session.add(bot_settings)
+                session.commit()
+                
+            if not bot_settings.use_dify:
+                responses = local_response(user_input, bot_settings)
+            else:
+                responses = dify_response(user_input, bot_settings)
+                
+            # Save chat to database
             chat = Chat(
                 user_input=user_input,
-                system_answer=detailed_answer['answer'],
+                system_answer=responses['detailed_answer'],
                 collection_id=collection_id,
-                llm_input_token=callback.prompt_tokens,
-                llm_output_token=callback.completion_tokens,
-                llm_model=model,
+                llm_input_token=responses['token_usage']['input_tokens'],
+                llm_output_token=responses['token_usage']['output_tokens'],
+                llm_model=bot_settings.model_name,
                 extra_data={
                     'collection_id': collection_id,
                     'faq_match': {
-                        'question': question,
-                        'answer': answer
+                        'question': responses['faq_match']['question'],
+                        'answer': responses['faq_match']['answer']
                     },
-                    'score': faq_match[1]
+                    'score': responses['faq_match']['score']
                 }
             )
             session.add(chat)
             session.commit()
 
-        return jsonify(response)
+        return jsonify(responses)
 
     except Exception as e:
         return jsonify({

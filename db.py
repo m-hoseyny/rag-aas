@@ -1,9 +1,8 @@
-
-from sqlalchemy import Column, UUID, ForeignKey, Text, BigInteger, Integer, String, DateTime, JSON, create_engine
+from sqlalchemy import Column, UUID, ForeignKey, Text, BigInteger, Integer, String, DateTime, JSON, Float, Boolean, create_engine
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import os, uuid
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,7 +16,8 @@ MAIN_DB_PORT=os.environ.get('MAIN_DB_PORT', '5432')
 
 SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg://{MAIN_DB_USERNAME}:{MAIN_DB_PASSWORD}@{MAIN_DB_HOSTNAME}:{MAIN_DB_PORT}/{MAIN_DB_DATABASE}"
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
-
+Session = sessionmaker(bind=engine)
+session = Session()
 
 class Base(DeclarativeBase):
     pass
@@ -42,6 +42,23 @@ class Chat(Base):
         return f'<Chat {self.id}>'
     
     
+class BotSetting(Base):
+    __tablename__ = 'bot_settings'
+    id = Column(UUID(as_uuid=True), nullable=False, 
+                default=uuid.uuid4,
+                primary_key=True)
+    prompt = Column(Text)
+    temperature = Column(Float, nullable=False)
+    k = Column(Integer, nullable=False)
+    threshold = Column(Float, nullable=False)
+    collection_id = Column(String(200), nullable=False, index=True)
+    model_name = Column(String(200), nullable=False)
+    use_dify = Column(Boolean, default=False)
+    dify_api_key = Column(String(200))
+    dify_url = Column(String(200))
+    created_at = Column(DateTime, server_default=func.now())
+    
+
 Base.metadata.create_all(engine)
 
 

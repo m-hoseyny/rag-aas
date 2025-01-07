@@ -56,7 +56,10 @@ def get_faq(collection_name, user_input):
     return choosen_qrel
 
 
-def answer_me(collection_name, user_input, system_prompt=None, k=5, temperature=0.5, history=None, model='gpt-4o'):
+def answer_me(collection_name, user_input, 
+              system_prompt=None, k=5, 
+              temperature=0.5, history=None, model='gpt-4o',
+              threshold=THRESHOLD):
     
     vectorstore = get_vector_db(collection_name)
 
@@ -89,7 +92,7 @@ def answer_me(collection_name, user_input, system_prompt=None, k=5, temperature=
     question_answer_chain = create_stuff_documents_chain(llm, prompt)
     # retriever = vectorstore.as_retriever(search_kwargs={'k': k, 'fetch_k': k})
     retriever = vectorstore.as_retriever(search_type="similarity_score_threshold", 
-                                         search_kwargs={"score_threshold": THRESHOLD})
+                                         search_kwargs={"score_threshold": threshold})
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
     chat_history = []
     if history:
@@ -116,3 +119,51 @@ def feed_data(page_content, metadata, collection_name):
     docs.append(Document(page_content=page_content, metadata=metadata))
     result = vectorstore.add_documents(docs)
     return result
+
+
+def local_response(user_input, bot_settings):
+    answer = ''
+    question = ''
+    collection_id = bot_settings.collection_id
+    # Get FAQ match
+    faq_match = get_faq(collection_id, user_input)
+    output = ''
+    if faq_match[0]:
+        question = faq_match[0].metadata.get('question', '')
+        answer = faq_match[0].metadata.get('answer', '')
+
+    # Get detailed answer
+    model = bot_settings.model_name 
+    detailed_answer, callback = answer_me(
+        collection_name=collection_id,
+        user_input=user_input,
+        temperature=bot_settings.temperature,
+        model=model,
+        k=bot_settings.k,
+        system_prompt=bot_settings.prompt,
+        threshold=bot_settings.threshold
+    )
+    if detailed_answer['answer']:
+        output = 'به صورت خلاصه\n{}'.format(detailed_answer['answer'])
+    # Prepare response
+    response = {
+        'status': 'success',
+        'faq_match': {
+            'question': question,
+            'answer': answer,
+            'score': faq_match[1]
+        },
+        'detailed_answer': output,
+        'token_usage': {
+            'input_tokens': callback.total_tokens,
+            'output_tokens': callback.completion_tokens,
+            'total_tokens': callback.total_tokens
+        },
+        
+    }
+    
+    return response
+
+
+def dify_response(user_input, bot_settings):
+    pass
