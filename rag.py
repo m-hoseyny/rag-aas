@@ -1,4 +1,3 @@
-
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 
@@ -144,7 +143,8 @@ def local_response(user_input, bot_settings):
         threshold=bot_settings.threshold
     )
     if detailed_answer['answer']:
-        output = 'به صورت خلاصه\n{}'.format(detailed_answer['answer'])
+        # output = 'به صورت خلاصه\n{}'.format(detailed_answer['answer'])
+        output = detailed_answer['answer']
     # Prepare response
     response = {
         'status': 'success',
@@ -166,4 +166,59 @@ def local_response(user_input, bot_settings):
 
 
 def dify_response(user_input, bot_settings):
-    pass
+    import requests
+    
+    headers = {
+        'Authorization': f'Bearer {bot_settings.dify_api_key}',
+        'Content-Type': 'application/json'
+    }
+    
+    payload = {
+        'inputs': {},
+        'query': user_input,
+        'response_mode': 'blocking',  # Using blocking instead of streaming for simpler implementation
+        'conversation_id': '',
+        'user': 'default-user'
+    }
+    
+    try:
+        response = requests.post(
+            f'{bot_settings.dify_url}/chat-messages',
+            headers=headers,
+            json=payload
+        )
+        response.raise_for_status()  # Raise an exception for bad status codes
+        
+        data = response.json()
+        
+        # Format response to match local_response structure
+        return {
+            'status': 'success',
+            'faq_match': {
+                'question': '',
+                'answer': '',
+                'score': 0
+            },
+            'detailed_answer': data.get('answer', ''),
+            'token_usage': {
+                'input_tokens': data.get('tokens', {}).get('prompt_tokens', 0),
+                'output_tokens': data.get('tokens', {}).get('completion_tokens', 0),
+                'total_tokens': data.get('tokens', {}).get('total_tokens', 0)
+            }
+        }
+        
+    except requests.RequestException as e:
+        return {
+            'status': 'error',
+            'faq_match': {
+                'question': '',
+                'answer': '',
+                'score': 0
+            },
+            'detailed_answer': f'Error connecting to Morshed API: {str(e)}',
+            'token_usage': {
+                'input_tokens': 0,
+                'output_tokens': 0,
+                'total_tokens': 0
+            }
+        }

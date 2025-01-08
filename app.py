@@ -5,8 +5,15 @@ import requests
 import pandas as pd
 import tempfile
 import os
-from rag import feed_data, get_faq, answer_me, local_response
+from rag import feed_data, local_response, dify_response
 from flasgger import Swagger, swag_from
+import logging
+logging.basicConfig(level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S')
+
+logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__)
 swagger = Swagger(app, template={
@@ -273,6 +280,7 @@ def chat_message():
             if not bot_settings.use_dify:
                 responses = local_response(user_input, bot_settings)
             else:
+                logger.info('Using dify')
                 responses = dify_response(user_input, bot_settings)
                 
             # Save chat to database
