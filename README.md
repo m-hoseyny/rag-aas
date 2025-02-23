@@ -51,6 +51,17 @@ docker-compose up --build
 
 The API will be available at `http://localhost:8443`
 
+## API Documentation
+
+The API documentation is available through Swagger UI at:
+- `http://localhost:8443/apidocs`
+
+You can use this interactive interface to:
+- Explore all available endpoints
+- Test API endpoints directly
+- View request/response schemas
+- Download OpenAPI specification
+
 ## API Endpoints
 
 - `GET /`: Welcome endpoint with service status
@@ -58,7 +69,7 @@ The API will be available at `http://localhost:8443`
   - Required parameters:
     - `collection_id`: Unique identifier for the document collection
     - `file_url`: URL of the file to process (supports .txt and .csv)
-- `POST /chat`: Chat endpoint for querying the knowledge base
+- `POST /chat-message`: Chat endpoint for querying the knowledge base
   - Supports conversation history and context
 
 ## Usage Example
@@ -72,7 +83,7 @@ curl -X POST http://localhost:8443/upload-file \
 
 2. Query the knowledge base:
 ```bash
-curl -X POST http://localhost:8443/chat \
+curl -X POST http://localhost:8443/chat-message \
   -H "Content-Type: application/json" \
   -d '{"collection_id": "my_docs", "user_input": "What does the document say about X?"}'
 ```
