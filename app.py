@@ -38,19 +38,6 @@ swagger = Swagger(app, template={
                 "properties": {
                     "status": {"type": "string"},
                     "message": {"type": "string"},
-                    "latest_chats": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "user_input": {"type": "string"},
-                                "system_answer": {"type": "string"},
-                                "created_at": {"type": "string"},
-                                "llm_model": {"type": "string"}
-                            }
-                        }
-                    }
                 }
             }
         }
