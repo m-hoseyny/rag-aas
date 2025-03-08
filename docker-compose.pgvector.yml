@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    depends_on:
+      - pgvector
     networks:
       - backend
 
@@ -15,6 +17,21 @@ services:
       - "traefik.http.routers.rag-ass-app.entrypoints=websecure"
       - "traefik.http.routers.rag-ass-app.tls.certresolver=myresolver"
 
+  pgvector:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_DB: ragaas
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
 
 networks:
   backend:
