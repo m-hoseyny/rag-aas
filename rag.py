@@ -120,6 +120,72 @@ def feed_data(page_content, metadata, collection_name):
     return result
 
 
+def feed_data_batch(documents, collection_name):
+    """
+    Add multiple documents to the vector database in a single operation.
+    
+    Args:
+        documents (list): List of dictionaries, each containing 'page_content' and 'metadata'
+        collection_name (str): Name of the collection to add documents to
+        
+    Returns:
+        list: List of document IDs added to the database
+    """
+    vectorstore = get_vector_db(collection_name)
+    docs = []
+    for doc in documents:
+        docs.append(Document(page_content=doc['page_content'], metadata=doc['metadata']))
+    result = vectorstore.add_documents(docs)
+    return result
+
+
+def retrieve(collection_name, query, top_k=5, score_threshold=0.5):
+    """
+    Retrieve documents from the vector database based on similarity to the query.
+    
+    Args:
+        collection_name (str): Name of the collection to search in
+        query (str): The query text to search for
+        top_k (int): Maximum number of documents to return
+        score_threshold (float): Minimum similarity score threshold
+        
+    Returns:
+        list: List of dictionaries containing retrieved documents with metadata and scores
+    """
+    vectorstore = get_vector_db(collection_name)
+    
+    # Perform similarity search with scores
+    results = vectorstore.similarity_search_with_score(
+        query=query,
+        k=top_k
+    )
+    
+    # Format the results according to the specified response format
+    records = []
+    for doc, score in results:
+        # Convert score from distance to similarity (1 - distance)
+        similarity_score = 1 - score
+        
+        # Skip documents below the threshold
+        if similarity_score < score_threshold:
+            continue
+        
+        # Extract title from metadata or use empty string
+        title = ""
+        if hasattr(doc, 'id') and doc.id:
+            title = str(doc.id)
+        
+        record = {
+            "metadata": doc.metadata,
+            "score": round(float(similarity_score), 2),
+            "title": title,
+            "content": doc.page_content
+        }
+        records.append(record)
+    
+    return records
+
+
 def local_response(user_input, bot_settings):
     answer = ''
     question = ''

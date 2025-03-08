@@ -5,7 +5,7 @@ import requests
 import pandas as pd
 import tempfile
 import os
-from rag import feed_data, local_response, dify_response
+from rag import feed_data, feed_data_batch, retrieve, local_response, dify_response
 from flasgger import Swagger, swag_from
 import logging
 logging.basicConfig(level=logging.INFO,
@@ -50,6 +50,212 @@ def index():
             'status': 'success',
             'message': 'Welcome to RAG as a Service API',
         })
+
+@app.route('/feed', methods=['POST'])
+@swag_from({
+    "parameters": [
+        {
+            "name": "body",
+            "in": "body",
+            "required": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "collection_id": {"type": "string", "description": "Collection ID to store the documents"},
+                    "data": {
+                        "type": "array", 
+                        "description": "List of documents to add to the collection",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "page_content": {"type": "string", "description": "The content to be stored and retrieved"},
+                                "metadata": {"type": "object", "description": "Additional metadata associated with the content"}
+                            },
+                            "required": ["page_content"]
+                        }
+                    }
+                },
+                "required": ["collection_id", "data"]
+            }
+        }
+    ],
+    "responses": {
+        200: {
+            "description": "Data successfully added to the collection",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"},
+                    "ids": {"type": "array", "items": {"type": "string"}}
+                }
+            }
+        },
+        400: {
+            "description": "Invalid input",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"}
+                }
+            }
+        }
+    }
+})
+def feed():
+    try:
+        data = request.get_json()
+        if not data or 'collection_id' not in data or 'data' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required fields: collection_id or data'
+            }), 400
+
+        collection_id = data['collection_id']
+        documents = data['data']
+        
+        if not isinstance(documents, list) or len(documents) == 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'Data must be a non-empty list of documents'
+            }), 400
+        
+        # Validate each document in the list
+        for i, doc in enumerate(documents):
+            if 'page_content' not in doc:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Document at index {i} is missing required field: page_content'
+                }), 400
+            if 'metadata' not in doc:
+                documents[i]['metadata'] = {}
+        
+        logger.info(f"Feeding {len(documents)} documents to collection: {collection_id}")
+        
+        # Use the feed_data_batch function to add the data to the database
+        result = feed_data_batch(
+            documents=documents,
+            collection_name=collection_id
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'{len(documents)} documents successfully added to collection {collection_id}',
+            'ids': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error feeding data: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/retrieval', methods=['POST'])
+@swag_from({
+    "parameters": [
+        {
+            "name": "body",
+            "in": "body",
+            "required": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "knowledge_id": {"type": "string", "description": "Knowledge/Collection ID to search in"},
+                    "collection_id": {"type": "string", "description": "Alternative name for knowledge_id"},
+                    "query": {"type": "string", "description": "The query text to search for"},
+                    "retrieval_setting": {
+                        "type": "object",
+                        "properties": {
+                            "top_k": {"type": "integer", "description": "Maximum number of documents to return", "default": 5},
+                            "score_threshold": {"type": "number", "description": "Minimum similarity score threshold", "default": 0.5}
+                        }
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    ],
+    "responses": {
+        200: {
+            "description": "Retrieved documents based on the query",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "records": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "metadata": {"type": "object", "description": "Metadata associated with the document"},
+                                "score": {"type": "number", "description": "Similarity score between the query and document"},
+                                "title": {"type": "string", "description": "Document title or ID"},
+                                "content": {"type": "string", "description": "Document content"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        400: {
+            "description": "Invalid input",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string"},
+                    "message": {"type": "string"}
+                }
+            }
+        }
+    }
+})
+def retrieval():
+    try:
+        data = request.get_json()
+        if not data or 'query' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required field: query'
+            }), 400
+
+        # Accept either knowledge_id or collection_id
+        collection_id = data.get('knowledge_id') or data.get('collection_id')
+        if not collection_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required field: knowledge_id or collection_id'
+            }), 400
+
+        query = data['query']
+        retrieval_setting = data.get('retrieval_setting', {})
+        
+        # Extract retrieval settings with defaults
+        top_k = int(retrieval_setting.get('top_k', 5))
+        score_threshold = float(retrieval_setting.get('score_threshold', 0.5))
+        
+        logger.info(f"Retrieving documents from collection '{collection_id}' for query: '{query}'")
+        
+        # Use the retrieve function to get documents
+        records = retrieve(
+            collection_name=collection_id,
+            query=query,
+            top_k=top_k,
+            score_threshold=score_threshold
+        )
+        
+        return jsonify({
+            'records': records
+        })
+
+    except Exception as e:
+        logger.error(f"Error retrieving documents: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 
 @app.route('/upload-file', methods=['POST'])
 @swag_from({
