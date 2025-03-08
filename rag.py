@@ -174,6 +174,8 @@ def retrieve(collection_name, query, top_k=5, score_threshold=0.5):
         title = ""
         if hasattr(doc, 'id') and doc.id:
             title = str(doc.id)
+        if not title:
+            title = doc.metadata.get('title', '')
         
         record = {
             "metadata": doc.metadata,
